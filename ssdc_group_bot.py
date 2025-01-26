@@ -25,7 +25,8 @@ Usage:
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
-
+from telegram import Update
+from telegram.ext import Application, MessageHandler, filters
 import html, json, logging, os, pytz,\
        telegram as tg,\
        telegram.constants as tgc,\
@@ -101,6 +102,11 @@ logger = logging.getLogger(__name__)
 
 # Define a few command handlers. These usually take the two arguments update and
 # context.
+async def on_ping(update: Update, context) -> None:
+    # Check if the bot's username is mentioned in the message
+    if '@ssdc_group_bot' in update.message.text:
+        await update.message.reply_text("What la")
+
 async def start(
     update: tg.Update,
     context: tge.ContextTypes.DEFAULT_TYPE
@@ -111,7 +117,12 @@ async def start(
         "you can proceed to /ann your slot now,",
         "or see what else I can /help with."
         ))
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
+    return
 
 async def help(
     update: tg.Update,
@@ -123,11 +134,15 @@ async def help(
         f"{update.effective_user.mention_html()}:")),
         "<code>/start</code> - Get a greeting",
         "<code>/help</code> - Get this help text",
-        "<code>/ann</code> - Announce slot to a channel (*)",
-        "<code>/chn</code> - Get the list of channels (*)",
-        "(*) Only available to @ssdcmotorbikegroup and @ssdcclass345"
+        "<code>/ann</code> - Announce slot to a channel",
+        "<code>/chn</code> - Get the list of channels",
+        "/ann and /chn now available in DMs!"
         ))
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
     return
 
 def get_bike_combi(request_words) -> str:
@@ -204,7 +219,11 @@ async def ann_bike(
         reply = f"I've sent your message, {sender.mention_html()}."
     else:
         reply = f"I've sent the message from {sender.mention_html()}."
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
     return
 
 async def ann_car(
@@ -239,7 +258,11 @@ async def ann_car(
                 reply = f"I've sent your message, {sender.mention_html()}."
             else:
                 reply = f"I've sent the message from {sender.mention_html()}."
-            await update.effective_message.reply_html(reply)
+            await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
             break
     # else executed if for loop iterated through without any break hit,
     # i.e. no valid class was found.
@@ -262,8 +285,13 @@ async def ann_dms(
     context: tge.ContextTypes.DEFAULT_TYPE
     ) -> None:
     """Send the message to a channel when /ann is issued - DMs."""
-    combi = get_bike_combi(context.args)
-    await update.effective_message.reply_html(combi)
+    combi = ann_dm_verify(context.args)
+    if not combi:
+        await ann_help_dms(update,context)
+    elif combi == 'motor':
+        await ann_bike(update,context)
+    else:
+        await ann_car(update,context)
     return
 
 async def chn_bike(
@@ -366,6 +394,7 @@ async def chn_car_single(
                 ))
             )
         return
+
 async def chn_dms(
     update: tg.Update,
     context: tge.ContextTypes.DEFAULT_TYPE
@@ -396,13 +425,16 @@ async def source(
     update: tg.Update,
     context: tge.ContextTypes.DEFAULT_TYPE
     ) -> None:
-    await update.effective_message.reply_document(
-        document=open(__file__),
-        caption=" ".join((
-            "This is my source code,",
-            f"{update.effective_user.mention_html()}."
-            ))
-        )
+    await update.effective_message(
+        "https://github.com/pika3113/ssdc_slots_bot"
+    )
+    # await update.effective_message.reply_document(
+    #     document=open(__file__),
+    #     caption=" ".join((
+    #         "This is my source code,",
+    #         f"{update.effective_user.mention_html()}."
+    #         ))
+    #     )
     return
 
 def create_photo_caption(update):
@@ -476,7 +508,11 @@ async def ann_help_bike(
         ", ".join(list(BIKE_CHANNELS)),
         "To get notified about slots, press /chn to see the list of channels."
         ))
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
     return
 
 async def ann_help_car(
@@ -493,8 +529,46 @@ async def ann_help_car(
         ", ".join(list(CAR_CHANNELS)),
         "To get notified about slots, press /chn to see the list of channels."
         ))
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
     return
+
+async def ann_help_dms(
+    update: tg.Update,
+    context: tge.ContextTypes.DEFAULT_TYPE
+    ) -> None:
+    """Give the usage for /ann without arguments. - DMs"""
+    combin = {**CAR_CHANNELS, **BIKE_CHANNELS}
+    reply = "\n".join((" ".join((
+        "Please use the following format for <code>/ann</code>, ",
+        f"{update.effective_user.mention_html()}:")),
+        "<code>/ann &lt;class&gt; &lt;remarks&gt;</code>",
+        "Example: <code>/ann 3 trysell tomorrow 11pm</code>",
+        "Valid values for class:",
+        ", ".join(list(combin)),
+        "To get notified about slots, press /chn to see the list of channels."
+        ))
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML'
+    )
+    return
+
+def ann_dm_verify(obj):
+    motor = ["2B", "2A", "2"]
+    car = ["3","3A","4","5"]
+    if obj == []:
+        return False
+    elif obj[0].upper() not in motor and obj[0].upper() not in car:
+        return False
+    elif obj[0].upper() in motor:
+        return 'motor'
+    else:
+        return 'car'
 
 async def error_handler(
     update: object,
@@ -503,6 +577,20 @@ async def error_handler(
     """Fallback error handler for all errors in the bot."""
     logger.error("Exception while handling an update:", exc_info=context.error)
     context.application.stop_running()
+    return
+
+async def spawnslots(
+    update: tg.Update,
+    context: tge.ContextTypes.DEFAULT_TYPE
+    ) -> None:
+    reply = f"Here is a video on how to spawn slots {update.effective_user.mention_html()}: "
+    reply+= "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML',
+        disable_web_page_preview=True
+    )
     return
 
 def main() -> None:
@@ -552,7 +640,7 @@ def main() -> None:
         has_args=True
         ))
     application.add_handler(tge.CommandHandler(
-        "ann", ann_dms_help,
+        "ann", ann_help_dms,
         filters=tge.filters.ChatType.PRIVATE,
         has_args=False
         ))
@@ -600,6 +688,10 @@ def main() -> None:
         )
     )
     application.add_error_handler(error_handler)
+
+    application.add_handler(tge.CommandHandler("spawnslots", spawnslots))
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_ping))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(
