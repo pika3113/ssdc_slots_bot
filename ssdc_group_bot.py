@@ -17,6 +17,7 @@ SSDC group bot
 Functions:
 /start - Checks if the bot is up and running
 /help - Get this help Text
+/camp- How to camp (for slots for 3n3a only)
 /ann - Announce slot(s) to a channel
 /chn - Get the list of joinable channels for slots
 /source - Downloads the source code
@@ -25,68 +26,71 @@ Usage:
 Press Ctrl-C on the command line or send a signal to the process to stop the
 bot.
 """
+import os
+import sys
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters
-import html, json, logging, os, pytz,\
+import html, json, logging, os,\
        telegram as tg,\
        telegram.constants as tgc,\
        telegram.ext as tge
+from zoneinfo import ZoneInfo
 
 BIKE_GROUP_ID = -1001593988521
 CAR_GROUP_ID = -1001190711156
 BIKE_CHANNELS = {
-    "2B P1" : -1001604026024,
-    "2B P2" : -1001512038565,
-    "2B P3" : -1001842179238,
-    "2B P4" : -1001552345568,
-    "2B P5" : -1001718416402,
-    "2B P6" : -1001627609929,
-    "2B P7" : -1001844283126,
-    "2B P8" : -1001868104827,
-    "2B RC" : -1001868702249,
-    "2B RR" : -1001939909308,
-    "2A P1" : -1001943914824,
-    "2A P2" : -1001912331384,
-    "2A P3" : -1001967167420,
-    "2A RC" : -1001718018850,
-    "2 P1" : -1001964773035,
-    "2 P2" : -1001850933520,
-    "2 P3" : -1001917546955,
-    "2 RC" : -1001939432931
+    "Class 2B P1" : -1001604026024,
+    "Class 2B P2" : -1001512038565,
+    "Class 2B P3" : -1001842179238,
+    "Class 2B P4" : -1001552345568,
+    "Class 2B P5" : -1001718416402,
+    "Class 2B P6" : -1001627609929,
+    "Class 2B P7" : -1001844283126,
+    "Class 2B P8" : -1001868104827,
+    "Class 2B RC" : -1001868702249,
+    "Class 2B RR" : -1001939909308,
+    "Class 2A P1" : -1001943914824,
+    "Class 2A P2" : -1001912331384,
+    "Class 2A P3" : -1001967167420,
+    "Class 2A RC" : -1001718018850,
+    "Class 2 P1" : -1001964773035,
+    "Class 2 P2" : -1001850933520,
+    "Class 2 P3" : -1001917546955,
+    "Class 2 RC" : -1001939432931
 }
 CAR_CHANNELS = {
     "TP-PDI": -1002168273942,
     "TP-SCH-3": -1002191654192,
     "TP-SCH-3A": -1002205374514,
-    "3" : -1001823773006,
-    "3A" : -1001634604197
+    "Class 3" : -1001823773006,
+    "Class 3A" : -1001634604197
 }
 # for /chn command output
 # way too slow to get chn chat object then invite link
 CHANNEL_LINKS = {
-    -1001604026024 : "https://t.me/+fB4w9-K8zEJlOTJl",
-    -1001512038565 : "https://t.me/+AIva_-Iv5zphYTI1",
-    -1001842179238 : "https://t.me/+gGOn5mHm5kY5NTJl",
-    -1001552345568 : "https://t.me/+h51k-CVRzjljNTA9",
-    -1001718416402 : "https://t.me/+vtLRKWPyVgUzNWY1",
-    -1001627609929 : "https://t.me/+rhNIJffk6qs5ZWRl",
-    -1001844283126 : "https://t.me/+aucJV4RwdHk4NTQ1",
-    -1001868104827 : "https://t.me/+vMho4VozKq4xNTFl",
-    -1001868702249 : "https://t.me/+Y9FTux_MDEYxYjk1",
-    -1001939909308 : "https://t.me/+ebLnzAo85fU2NDdl",
-    -1001943914824 : "https://t.me/+gkzbLfcNrLA5MGU1",
-    -1001912331384 : "https://t.me/+NF0AVoex4yozMjM1",
-    -1001967167420 : "https://t.me/+20GoW_qUWho0N2M1",
-    -1001718018850 : "https://t.me/+0fREBjkxID40ODdl",
-    -1001964773035 : "https://t.me/+Spo5RmLjKJo0MjFl",
-    -1001850933520 : "https://t.me/+UW9g5OY4WC43M2Nl",
-    -1001917546955 : "https://t.me/+zQ1BrJsDFMxlMWI1",
-    -1001939432931 : "https://t.me/+u19jMP010cYxMzU9",
-    -1001823773006 : "https://t.me/+KkKUd_q4f3pmMjc1",
-    -1001634604197 : "https://t.me/+3hbQj79djhU2ZWI9",
-    -1002168273942 : "https://t.me/+07OaxB9HcAFlNjll",
-    -1002191654192 : "https://t.me/+0hRhqJxaMhdkZGVl",
-    -1002205374514 : "https://t.me/+wXCj54mx3HgxYmE1"
+    -1001604026024 : "https://t.me/+1NTiF-EBQck3NmM1", #2b p1 done
+    -1001512038565 : "https://t.me/+v_MR5xKLWkswOTc1", #2b p2 done
+    -1001842179238 : "https://t.me/+LruulSj7RCJhNWFl", #2b p3 done
+    -1001552345568 : "https://t.me/+_cjrG_MNC6tkODU1", #2b p4 done
+    -1001718416402 : "https://t.me/+oMZ1brFqSvZjNTFl", #2b p5 done
+    -1001627609929 : "https://t.me/+53dINgFfo6wxOTg1", #2b p6 done
+    -1001844283126 : "https://t.me/+4aejsit1K8dmNjg1", #2b p7 done
+    -1001868104827 : "https://t.me/+JHlvN0cag545OWQ1", #2b p8 done
+    -1001868702249 : "https://t.me/+X_bRTwhgSMM0NTE1", #2b rc done
+    -1001939909308 : "https://t.me/+YHrXpulDo9UwYzM9", #2b rr done
+    -1001943914824 : "https://t.me/+cndt_-FwtaszMTc1", #2a p1 done
+    -1001912331384 : "https://t.me/+Q2BsqXmREeMyNjc1", #2a p2 done
+    -1001967167420 : "https://t.me/+2ydawkFsDlFjYTE9", #2a p3 done
+    -1001718018850 : "https://t.me/+900UzZV4REE5ZDM9", #2a rc done
+    -1001964773035 : "https://t.me/+PhjKTKOjKpxmMThl", #2 p1 done
+    -1001850933520 : "https://t.me/+q1eru8Or94w5Njll", #2 p2 done
+    -1001917546955 : "https://t.me/+g8uQ_S4By2tkMjJl", #2 p3 done 
+    -1001939432931 : "https://t.me/+59Qk1c86jIpiMWU1", #2 rc done
+    -1001823773006 : "https://t.me/+G03oHRb4G1VkMjFl", #3 done
+    -1001634604197 : "https://t.me/+wAJodAyRiAoyZTk1", #3a done
+    -1002168273942 : "https://t.me/+OSOsmWEBmn5hNzI1", #pdi tp DONE
+    -1002191654192 : "https://t.me/+wTo9YAizyyhkNjI1", #3 tp done
+    -1002205374514 : "https://t.me/+CPIuDI26u8Y2Mjc1", #sch 3a tp DONE
 }
 
 # Enable logging
@@ -100,11 +104,13 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
-# Define a few command handlers. These usually take the two arguments update and
-# context.
-async def on_ping(update: Update, context) -> None:
+# Define a few command handlers. These usually take the two arguments update and context.
+
+async def on_ping(
+    update: Update, context
+    ) -> None:
     # Check if the bot's username is mentioned in the message
-    if '@ssdc_group_bot' in update.message.text:
+    if update.message and '@ssdc_group_bot' in update.message.text:
         await update.message.reply_text("What la")
 
 async def start(
@@ -132,11 +138,14 @@ async def help(
     reply = "\n".join((" ".join((
         "I understand the following commands,",
         f"{update.effective_user.mention_html()}:")),
-        "<code>/start</code> - Get a greeting",
+        "<code>/start</code> - Checks if the bot is up and running",
         "<code>/help</code> - Get this help text",
-        "<code>/ann</code> - Announce slot to a channel",
+        "<code>/ann</code> - Announce slot(s) to a channel",
+        "<code>/camp</code> - How to camp (for slots for 3n3a only)"
         "<code>/chn</code> - Get the list of channels",
         "/ann and /chn now available in DMs!"
+        "\n"
+        "Created by @Ki Chi LEUNG and maintained by @pika3113"
         ))
     await update.effective_message._bot.send_message(
         chat_id=update.effective_chat.id,
@@ -300,15 +309,13 @@ async def chn_bike(
     ) -> None:
     """List the channels when /chn is issued - BIKE GROUP."""
     reply = " ".join((
-        "These are the channels for motorcycle,",
+        "Channels for motorcycle,",
         f"{update.effective_user.mention_html()}:\n"
         ))
     for c in BIKE_CHANNELS:
-        reply += " ".join((
-            f"* class and lesson: <b>{c}</b>,",
-            f"link: {CHANNEL_LINKS[BIKE_CHANNELS[c]]}\n"
-            ))
-    reply += "\n"
+        reply+=f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[c]]}">{c}</a>\n"""
+        if c[-2:] == "RC":
+            reply+='\n'
     reply += "To get notified of slots, join the above channels.\n"
     reply += "To announce slots, use /ann"
     await update.effective_message.reply_html(reply)
@@ -351,18 +358,20 @@ async def chn_car(
     ) -> None:
     """List the channels when /chn is issued - CAR GROUP."""
     reply = " ".join((
-        "These are the channels for car,",
+        "Channels for car,",
         f"{update.effective_user.mention_html()}:\n"
         ))
     for c in CAR_CHANNELS:
-        reply += " ".join((
-            f"* class: <b>{c}</b>,",
-            f"link: {CHANNEL_LINKS[CAR_CHANNELS[c]]}\n"
-            ))
+        reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{c}</a>\n"""
     reply += "\n"
-    reply += "To get notified of slots, join the above channels.\n"
-    reply += "To announce slots, use /ann"
-    await update.effective_message.reply_html(reply)
+    reply += "Join the above channels to get notified of slots.\n"
+    reply += "Use /ann to annouce slots"
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML',
+        disable_web_page_preview=True
+    )
     return
 
 async def chn_car_single(
@@ -380,7 +389,12 @@ async def chn_car_single(
             reply += "\n"
             reply += "To get notified of slots, join the above channel.\n"
             reply += "To announce slots, use /ann"
-            await update.effective_message.reply_html(reply)
+            await update.effective_message._bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=reply,
+                parse_mode='HTML',
+                disable_web_page_preview=True
+            )
             return
     else:
         await update.effective_message.reply_html(
@@ -401,24 +415,24 @@ async def chn_dms(
     ) -> None:
     """List the channels when /chn is issued - DMs."""
     reply = " ".join((
-        
-        "These are the channels for car,\n",
+
+        "Channels for car,\n",
         ))
     for c in CAR_CHANNELS:
-        reply += " ".join((
-            f"* class: <b>{c}</b>,",
-            f"link: {CHANNEL_LINKS[CAR_CHANNELS[c]]}\n"
-            ))
-    reply+="These are the channels for motorcycle,\n"    
+        reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{c}</a>\n"""
+    reply+="\nChannels for motorcycle,\n"
     for c in BIKE_CHANNELS:
-        reply += " ".join((
-            f"* class and lesson: <b>{c}</b>,",
-            f"link: {CHANNEL_LINKS[BIKE_CHANNELS[c]]}\n"
-            ))
-    reply += "\n"
+        reply+=f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[c]]}">{c}</a>\n"""
+        if c[-2:] == "RC":
+            reply+='\n'
     reply += "To get notified of slots, join the above channels.\n"
     reply += "To announce slots, use /ann"
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML',
+        disable_web_page_preview=True
+    )
     return
 
 async def source(
@@ -593,8 +607,36 @@ async def spawnslots(
     )
     return
 
+async def camp_3n3a(
+    update: tg.Update,
+    context: tge.ContextTypes.DEFAULT_TYPE
+    ) -> None:
+    reply = f"Below is how to camp for slots {update.effective_user.mention_html()}\n"
+    reply += open("howtocamp.txt").read()
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML',
+        disable_web_page_preview=True
+    )
+    return
+
+async def sess_img(
+    update: tg.Update,
+    context: tge.ContextTypes.DEFAULT_TYPE
+    ) -> None:
+    with open("sess.jpg", "rb") as photo:
+        await update.effective_message._bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=photo,
+            parse_mode='HTML'
+        )
+    return
+
 def main() -> None:
     """Start the bot."""
+    script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))  # Get the directory where the script is
+    os.chdir(script_dir)
     # Create the Application and pass it your bot's token.
     # set bot default to HTML message output and Singapore timezone.
     with open("bot_keys.json") as fp:
@@ -603,7 +645,7 @@ def main() -> None:
             ).defaults(
                 tge.Defaults(
                     parse_mode=tgc.ParseMode.HTML,
-                    tzinfo=pytz.timezone("Asia/Singapore")
+                    tzinfo=ZoneInfo("Asia/Singapore")
                     )
                 ).build()
 
@@ -664,6 +706,19 @@ def main() -> None:
         filters=tge.filters.Chat(CAR_GROUP_ID),
         has_args=True
         ))
+    
+    application.add_handler(tge.CommandHandler(
+        "camp", camp_3n3a,
+        filters=tge.filters.Chat(CAR_GROUP_ID),
+        has_args=False
+        ))
+    
+    application.add_handler(tge.CommandHandler(
+        "sess", sess_img,
+        filters=tge.filters.Chat(CAR_GROUP_ID),
+        has_args=False
+        ))
+
     application.add_handler(tge.CommandHandler(
         "chn", chn_dms,
         filters=tge.filters.ChatType.PRIVATE,
