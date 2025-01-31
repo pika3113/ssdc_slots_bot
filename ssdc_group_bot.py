@@ -29,41 +29,43 @@ bot.
 import os
 import sys
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters
+from telegram.ext import Application, MessageHandler, filters, CallbackContext
 import html, json, logging, os,\
        telegram as tg,\
        telegram.constants as tgc,\
        telegram.ext as tge
 from zoneinfo import ZoneInfo
 
+msgtracker = {}
+
 BIKE_GROUP_ID = -1001593988521
 CAR_GROUP_ID = -1001190711156
 BIKE_CHANNELS = {
-    "Class 2B P1" : -1001604026024,
-    "Class 2B P2" : -1001512038565,
-    "Class 2B P3" : -1001842179238,
-    "Class 2B P4" : -1001552345568,
-    "Class 2B P5" : -1001718416402,
-    "Class 2B P6" : -1001627609929,
-    "Class 2B P7" : -1001844283126,
-    "Class 2B P8" : -1001868104827,
-    "Class 2B RC" : -1001868702249,
-    "Class 2B RR" : -1001939909308,
-    "Class 2A P1" : -1001943914824,
-    "Class 2A P2" : -1001912331384,
-    "Class 2A P3" : -1001967167420,
-    "Class 2A RC" : -1001718018850,
-    "Class 2 P1" : -1001964773035,
-    "Class 2 P2" : -1001850933520,
-    "Class 2 P3" : -1001917546955,
-    "Class 2 RC" : -1001939432931
+    "2B P1" : -1001604026024,
+    "2B P2" : -1001512038565,
+    "2B P3" : -1001842179238,
+    "2B P4" : -1001552345568,
+    "2B P5" : -1001718416402,
+    "2B P6" : -1001627609929,
+    "2B P7" : -1001844283126,
+    "2B P8" : -1001868104827,
+    "2B RR" : -1001939909308,
+    "2B RC" : -1001868702249,
+    "2A P1" : -1001943914824,
+    "2A P2" : -1001912331384,
+    "2A P3" : -1001967167420,
+    "2A RC" : -1001718018850,
+    "2 P1" : -1001964773035,
+    "2 P2" : -1001850933520,
+    "2 P3" : -1001917546955,
+    "2 RC" : -1001939432931
 }
 CAR_CHANNELS = {
     "TP-PDI": -1002168273942,
     "TP-SCH-3": -1002191654192,
     "TP-SCH-3A": -1002205374514,
-    "Class 3" : -1001823773006,
-    "Class 3A" : -1001634604197
+    "3" : -1001823773006,
+    "3A" : -1001634604197
 }
 # for /chn command output
 # way too slow to get chn chat object then invite link
@@ -146,11 +148,14 @@ async def help(
         "/ann and /chn now available in DMs!"
         "\n"
         "Created by @Ki Chi LEUNG and maintained by @pika3113"
+        "\n\nIf you would like to keep this bot running, feel free to donate here: https://buymeacoffee.com/pika3113"
+        "\n<i>but no more than $2 pleasse</i>"
         ))
     await update.effective_message._bot.send_message(
         chat_id=update.effective_chat.id,
         text=reply,
-        parse_mode='HTML'
+        parse_mode='HTML',
+        disable_web_page_preview=True
     )
     return
 
@@ -219,11 +224,16 @@ async def ann_bike(
                 ))
             )
         return
+    reply = ' '.join(context.args[1:])
     broadcast = "\n".join((
-        html.escape(request_text),
+        html.escape(reply),
         f"Sent by: {sender.mention_html()}"
         ))
-    await context.bot.send_message(chat_id=BIKE_CHANNELS[combi], text=broadcast)
+    msg = await context.bot.send_message(chat_id=BIKE_CHANNELS[combi], text=reply)
+
+    #store msg id
+    msgtracker[update.effective_user.id] = (BIKE_CHANNELS[combi], msg.message_id)
+
     if sender == update.effective_user:
         reply = f"I've sent your message, {sender.mention_html()}."
     else:
@@ -255,14 +265,19 @@ async def ann_car(
                         ))
                     )
                 return
+            reply = ' '.join(context.args[1:])
             broadcast = "\n".join((
-                html.escape(request_text),
+                html.escape(reply),
                 f"Sent by: {sender.mention_html()}"
                 ))
-            await context.bot.send_message(
+            msg = await context.bot.send_message(
                 chat_id=CAR_CHANNELS[c],
                 text=broadcast
                 )
+            
+            #store msg id
+            msgtracker[update.effective_user.id] = (CAR_CHANNELS[c], msg.message_id)
+
             if sender == update.effective_user:
                 reply = f"I've sent your message, {sender.mention_html()}."
             else:
@@ -313,7 +328,8 @@ async def chn_bike(
         f"{update.effective_user.mention_html()}:\n"
         ))
     for c in BIKE_CHANNELS:
-        reply+=f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[c]]}">{c}</a>\n"""
+        ca = 'Class '+c
+        reply+=f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[c]]}">{ca}</a>\n"""
         if c[-2:] == "RC":
             reply+='\n'
     reply += "To get notified of slots, join the above channels.\n"
@@ -341,15 +357,17 @@ async def chn_bike_single(
                 ))
             )
         return
-    reply = " ".join((
-        f"This is the channel link for {combi},",
-        f"{update.effective_user.mention_html()}:\n",
-        f"{CHANNEL_LINKS[BIKE_CHANNELS[combi]]}"
-        ))
-    reply += "\n"
+    ca = "Class "+combi
+    reply = f"This is the channel link for "
+    reply += f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[combi]]}">{ca}</a>, {update.effective_user.mention_html()}\n\n"""
     reply += "To get notified of slots, join the above channel.\n"
     reply += "To announce slots, use /ann"
-    await update.effective_message.reply_html(reply)
+    await update.effective_message._bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=reply,
+        parse_mode='HTML',
+        disable_web_page_preview=True
+    )
     return
 
 async def chn_car(
@@ -362,7 +380,10 @@ async def chn_car(
         f"{update.effective_user.mention_html()}:\n"
         ))
     for c in CAR_CHANNELS:
-        reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{c}</a>\n"""
+        ca = c
+        if len(c) < 4:
+            ca="Class "+c
+        reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{ca}</a>\n"""
     reply += "\n"
     reply += "Join the above channels to get notified of slots.\n"
     reply += "Use /ann to annouce slots"
@@ -381,11 +402,11 @@ async def chn_car_single(
     """List the channel for a single argument. - CAR GROUP"""
     for c in CAR_CHANNELS:
         if c in [x.upper() for x in context.args]:
-            reply = " ".join((
-                f"This is the channel for {c},",
-                f"{update.effective_user.mention_html()}:\n",
-                f"{CHANNEL_LINKS[CAR_CHANNELS[c]]}"
-                ))
+            ca = c
+            if len(c) < 4:
+                ca="Class "+c
+            reply = f"This is the channel for "
+            reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{ca}</a>, {update.effective_user.mention_html()}\n"""
             reply += "\n"
             reply += "To get notified of slots, join the above channel.\n"
             reply += "To announce slots, use /ann"
@@ -419,10 +440,14 @@ async def chn_dms(
         "Channels for car,\n",
         ))
     for c in CAR_CHANNELS:
-        reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{c}</a>\n"""
+        ca = c 
+        if len(c) < 4:
+            ca="Class "+c
+        reply+=f"""<a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{ca}</a>\n"""
     reply+="\nChannels for motorcycle,\n"
     for c in BIKE_CHANNELS:
-        reply+=f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[c]]}">{c}</a>\n"""
+        ca = 'Class '+ c
+        reply+=f"""<a href="{CHANNEL_LINKS[BIKE_CHANNELS[c]]}">{ca}</a>\n"""
         if c[-2:] == "RC":
             reply+='\n'
     reply += "To get notified of slots, join the above channels.\n"
@@ -633,6 +658,48 @@ async def sess_img(
         )
     return
 
+async def check_new_members(
+    update: Update, 
+    context: tge.ContextTypes.DEFAULT_TYPE
+) -> None:
+    print('running')
+    if update.effective_message and update.effective_message.new_chat_members:
+        for user in update.effective_message.new_chat_members:
+            # Check if the username or bio contains a link
+            bio_text = user.username or ""
+            print(bio_text)
+            if "http://" in bio_text or "https://" in bio_text:
+                try:
+                    # Kick the user from the chat
+                    await context.bot.kick_chat_member(
+                        chat_id=update.effective_chat.id,
+                        user_id=user.id
+                    )
+                    print(f"Kicked user {user.id} with username: {bio_text}")
+                    await update.effective_message._bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f"Kicked stinky user {user.id}")
+                except Exception as e:
+                    print(f"Error while kicking user {user.id}: {e}")
+
+
+async def taken(
+        update: Update,
+        context: CallbackContext) -> None:
+    
+    user_id = update.effective_user.id
+    if user_id in msgtracker:
+        channel_id, message_id = msgtracker[user_id]
+        
+        await context.bot.edit_message_text(
+            chat_id=channel_id,  # Use the original channel ID
+            message_id=message_id,
+            text="Taken ✅"
+        )
+        await update.message.reply_text("Updated the message in the channel!")
+    else:
+        await update.message.reply_text("Message not found.")
+
 def main() -> None:
     """Start the bot."""
     script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))  # Get the directory where the script is
@@ -746,7 +813,17 @@ def main() -> None:
 
     application.add_handler(tge.CommandHandler("spawnslots", spawnslots))
 
+    application.add_handler(tge.CommandHandler("taken", taken))
+
+
+
+
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_ping))
+
+    application.add_handler(MessageHandler(
+        filters.StatusUpdate.NEW_CHAT_MEMBERS,
+        check_new_members
+    ))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling(
