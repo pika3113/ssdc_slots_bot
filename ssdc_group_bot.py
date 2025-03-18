@@ -35,6 +35,7 @@ import html, json, logging, os,\
        telegram.constants as tgc,\
        telegram.ext as tge
 from zoneinfo import ZoneInfo
+import random
 
 msgtracker = {}
 
@@ -112,8 +113,9 @@ async def on_ping(
     update: Update, context
     ) -> None:
     # Check if the bot's username is mentioned in the message
+    msgs = ["what la", "dun want talk to u", "your existence sponsored by disappointment ah","ccb what you doing here go back to camping","if blur was a degree, you confirm got PhD","nah"]
     if update.message and '@ssdc_group_bot' in update.message.text:
-        await update.message.reply_text("What la")
+        await update.message.reply_text(msgs[random.randint(0,len(msgs)-1)])
 
 async def start(
     update: tg.Update,
@@ -147,7 +149,7 @@ async def help(
         "<code>/chn</code> - Get the list of channels",
         "/ann and /chn now available in DMs!"
         "\n"
-        "Created by @Ki Chi LEUNG and maintained by @pika3113"
+        "Maintained by @pika3113"
         "\n\nIf you would like to keep this bot running, feel free to donate here: https://buymeacoffee.com/pika3113"
         "\n<i>but no more than $2 pleasse</i>"
         ))
@@ -224,18 +226,18 @@ async def ann_bike(
                 ))
             )
         return
-    reply = ' '.join(context.args[1:])
     broadcast = "\n".join((
-        html.escape(reply),
+        html.escape(request_text),
         f"Sent by: {sender.mention_html()}"
         ))
-    msg = await context.bot.send_message(chat_id=BIKE_CHANNELS[combi], text=reply)
+    msg = await context.bot.send_message(chat_id=BIKE_CHANNELS[combi], text=broadcast)
 
     #store msg id
     msgtracker[update.effective_user.id] = (BIKE_CHANNELS[combi], msg.message_id)
 
     if sender == update.effective_user:
-        reply = f"I've sent your message, {sender.mention_html()}."
+        #reply = f"""I've sent your message, {sender.mention_html()} in <a href="{CHANNEL_LINKS[BIKE_CHANNELS[combi]]}">{"here"}</a>."""
+        reply = f"""I've sent your message, {sender.mention_html()}."""
     else:
         reply = f"I've sent the message from {sender.mention_html()}."
     await update.effective_message._bot.send_message(
@@ -265,9 +267,8 @@ async def ann_car(
                         ))
                     )
                 return
-            reply = ' '.join(context.args[1:])
             broadcast = "\n".join((
-                html.escape(reply),
+                html.escape(request_text),
                 f"Sent by: {sender.mention_html()}"
                 ))
             msg = await context.bot.send_message(
@@ -279,7 +280,8 @@ async def ann_car(
             msgtracker[update.effective_user.id] = (CAR_CHANNELS[c], msg.message_id)
 
             if sender == update.effective_user:
-                reply = f"I've sent your message, {sender.mention_html()}."
+                reply = f"""I've sent your message, {sender.mention_html()}."""
+                #reply = f"""I've sent your message, {sender.mention_html()} in <a href="{CHANNEL_LINKS[CAR_CHANNELS[c]]}">{"here"}</a>."""
             else:
                 reply = f"I've sent the message from {sender.mention_html()}."
             await update.effective_message._bot.send_message(
@@ -682,7 +684,6 @@ async def check_new_members(
                 except Exception as e:
                     print(f"Error while kicking user {user.id}: {e}")
 
-
 async def taken(
         update: Update,
         context: CallbackContext) -> None:
@@ -814,9 +815,6 @@ def main() -> None:
     application.add_handler(tge.CommandHandler("spawnslots", spawnslots))
 
     application.add_handler(tge.CommandHandler("taken", taken))
-
-
-
 
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_ping))
 
