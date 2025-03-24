@@ -252,6 +252,12 @@ async def ann_car(
     context: tge.ContextTypes.DEFAULT_TYPE
     ) -> None:
     """Send the message to a channel when /ann is issued - CAR GROUP."""
+    e,_ = make_announcement_request(update, context)
+    #print(e.username)
+    if e.id == 1768324353:
+        await update.effective_message.reply_html((
+                            f"You cannot use this function {update.effective_user.mention_html()}."))
+        return
     for c in CAR_CHANNELS:
         if c in [x.upper() for x in context.args]:
             sender, request_text = make_announcement_request(update, context)
